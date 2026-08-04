@@ -1,0 +1,16 @@
+- name: Verificar VRRP
+  hosts: switches_L3
+  gather_facts: no
+
+  tasks:
+
+    - name: Ejecutar comando de verificacion
+      cisco.ios.ios_command:
+        commands:
+          - show vrrp brief
+
+      register: salida
+
+    - name: Mostrar VRRP
+      debug:
+        var: salida.stdout_lines

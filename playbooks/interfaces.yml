@@ -1,0 +1,16 @@
+- name: Monitoreo de interfaces
+  hosts: all
+  gather_facts: no
+
+  tasks:
+
+    - name: Mostrar interfaces
+      cisco.ios.ios_command:
+        commands:
+          - show ip interface brief
+
+      register: salida
+
+    - name: Mostrar salida limpia
+      debug:
+        msg: "{{ salida.stdout[0] }}"

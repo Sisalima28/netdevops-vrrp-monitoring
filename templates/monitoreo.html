@@ -1,0 +1,465 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+<h2 class="text-2xl font-bold mb-6 flex items-center">
+    <i class="fas fa-chart-line mr-3 text-green-400"></i>
+    Monitoreo en Tiempo Real
+</h2>
+
+<div class="grid grid-cols-1 gap-4">
+
+    {% for d in dispositivos %}
+
+    <div class="bg-slate-800 rounded-xl border border-gray-700 p-5 hover:border-blue-500 transition shadow-lg">
+
+        <!-- CABECERA -->
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+
+            <!-- Equipo -->
+            <div class="flex items-center space-x-4 w-full md:w-1/4">
+
+                <div class="w-16 h-16 bg-slate-700 rounded-lg flex items-center justify-center p-2">
+                    <img src="{{ d.imagen }}" alt="{{ d.tipo }}" class="max-w-full max-h-full object-contain">
+                </div>
+
+                <div>
+
+                    <h3 id="host-{{ d.ip }}" class="font-bold text-lg text-white">
+
+                        Cargando...
+
+                    </h3>
+
+                    <p class="text-sm text-gray-400 font-mono">
+                        {{ d.ip }}
+                    </p>
+
+                </div>
+
+            </div>
+
+            <!-- Botón -->
+            <div>
+
+                <button onclick="toggleDetalle('{{ d.ip }}', '{{ d.nombre }}')"
+                    class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition">
+
+                    Ver detalle
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <!-- PANEL DETALLE -->
+        <div id="detalle-{{ d.ip }}" class="hidden mt-6 border-t border-slate-700 pt-6">
+
+            <h3 class="font-bold text-purple-400 mb-4">
+                Prueba de monitoreo (consolidada)
+            </h3>
+
+            <button onclick="medirTiempoMonitoreo('{{ d.ip }}', '{{ d.nombre }}')"
+                class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition">
+                Ejecutar consulta y medir tiempo
+            </button>
+
+            <p id="tiempo-medido-{{ d.ip }}" class="mt-3 font-mono text-lg text-gray-200">
+                —
+            </p>
+
+            <!-- GRID -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                <!-- CPU -->
+                <div class="bg-slate-900 rounded-xl p-5">
+
+                    <h3 class="font-bold text-green-400 mb-4">
+                        CPU
+                    </h3>
+
+                    <div class="w-full bg-slate-700 rounded-full h-4">
+
+                        <div id="detalle-cpu-bar-{{ d.ip }}" class="bg-green-500 h-4 rounded-full" style="width:0%">
+                        </div>
+
+                    </div>
+
+                    <p id="detalle-cpu-text-{{ d.ip }}" class="mt-2 text-sm text-gray-300">
+
+                        0%
+
+                    </p>
+
+                </div>
+
+                <!-- UPTIME -->
+                <div class="bg-slate-900 rounded-xl p-5">
+
+                    <h3 class="font-bold text-blue-400 mb-4">
+                        Uptime
+                    </h3>
+
+                    <p id="detalle-uptime-{{ d.ip }}" class="font-mono text-gray-300">
+
+                        Cargando...
+
+                    </p>
+
+                </div>
+
+            </div>
+
+            <!-- Interfaces -->
+            <div class="mt-6 bg-slate-900 rounded-xl p-5">
+
+                <h3 class="font-bold text-yellow-400 mb-4">
+                    Interfaces
+                </h3>
+
+                <div class="overflow-auto">
+
+                    <table class="w-full text-sm">
+
+                        <thead>
+
+                            <tr class="border-b border-slate-700 text-left">
+
+                                <th class="py-2">Interface</th>
+                                <th class="py-2">IP</th>
+                                <th class="py-2">Estado</th>
+                                <th class="py-2">Protocolo</th>
+                                <th class="py-2">RX</th>
+                                <th class="py-2">TX</th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="tabla-interfaces-{{ d.ip }}">
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+            <div class="mt-6 bg-slate-900 rounded-xl p-5">
+
+                <h3 class="font-bold text-red-400 mb-4">
+                    Syslog
+                </h3>
+
+                <div id="syslog-{{ d.ip }}" class="space-y-2 text-sm font-mono max-h-64 overflow-y-auto pr-2">
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+<script>
+
+    const intervalosDetalle = {};
+
+    async function cargarSNMP(ip) {
+
+        try {
+
+            const res = await fetch(`/api/snmp/${ip}`);
+
+            const data = await res.json();
+
+            // HEADER
+            document.getElementById(`host-${ip}`).innerText =
+                data.hostname_real;
+
+            // Verificar si existe uptime principal
+            const uptimePrincipal =
+                document.getElementById(`uptime-${ip}`);
+
+            if (uptimePrincipal) {
+
+                uptimePrincipal.innerText =
+                    data.uptime_raw;
+
+            }
+
+            // Verificar si existe cpu principal
+            const cpuText =
+                document.getElementById(`cpu-text-${ip}`);
+
+            const cpuBar =
+                document.getElementById(`cpu-bar-${ip}`);
+
+            if (cpuText && cpuBar) {
+
+                cpuText.innerText =
+                    `${data.cpu}%`;
+
+                cpuBar.style.width =
+                    `${data.cpu}%`;
+
+            }
+
+            // =========================
+            // PANEL DETALLE
+            // =========================
+
+            const detallePanel =
+                document.getElementById(`detalle-${ip}`);
+
+            // Solo actualizar si está abierto
+            if (
+                detallePanel &&
+                !detallePanel.classList.contains("hidden")
+            ) {
+
+                // CPU detalle
+                document.getElementById(`detalle-cpu-text-${ip}`)
+                    .innerText = `${data.cpu}%`;
+
+                document.getElementById(`detalle-cpu-bar-${ip}`)
+                    .style.width = `${data.cpu}%`;
+
+                // Uptime detalle
+                document.getElementById(`detalle-uptime-${ip}`)
+                    .innerText = data.uptime_raw;
+
+            }
+
+        } catch (e) {
+
+            console.error(ip, e);
+
+        }
+
+    }
+
+    async function toggleDetalle(ip, nombre) {
+
+        const panel =
+            document.getElementById(`detalle-${ip}`);
+
+        panel.classList.toggle("hidden");
+
+        // ===== SI SE CIERRA =====
+        if (panel.classList.contains("hidden")) {
+
+            // Eliminar intervalo
+            if (intervalosDetalle[ip]) {
+
+                clearInterval(intervalosDetalle[ip]);
+
+                delete intervalosDetalle[ip];
+
+            }
+
+            return;
+        }
+
+        // ===== FUNCION CARGA =====
+        async function cargarDetalle() {
+
+            try {
+
+                // ===== SNMP =====
+                const res =
+                    await fetch(`/api/snmp/${ip}`);
+
+                const data =
+                    await res.json();
+
+                document.getElementById(`detalle-cpu-text-${ip}`)
+                    .innerText = `${data.cpu}%`;
+
+                document.getElementById(`detalle-cpu-bar-${ip}`)
+                    .style.width = `${data.cpu}%`;
+
+                document.getElementById(`detalle-uptime-${ip}`)
+                    .innerText = data.uptime_raw;
+
+                // ===== INTERFACES =====
+                const resInterfaces =
+                    await fetch(`/api/interfaces/${nombre}`);
+
+                const interfaces =
+                    await resInterfaces.json();
+
+                let html = "";
+
+                for (const interfaz of interfaces) {
+
+                    const trafico =
+                        await fetch(`/api/trafico/${ip}/${interfaz.ifindex}`);
+
+                    const datosTrafico =
+                        await trafico.json();
+
+                    const statusColor =
+                        interfaz.status.toLowerCase().includes("up")
+                            ? "text-green-400"
+                            : interfaz.status.toLowerCase().includes("administratively")
+                                ? "text-yellow-400"
+                                : "text-red-400";
+
+                    const protocolColor =
+                        interfaz.protocol.toLowerCase() === "up"
+                            ? "text-green-400"
+                            : "text-red-400";
+
+                    html += `
+
+<tr class="border-b border-slate-700 hover:bg-slate-800/50 transition">
+
+    <td class="py-2 font-mono">
+        ${interfaz.nombre}
+    </td>
+
+    <td class="py-2 font-mono text-blue-300">
+        ${interfaz.ip}
+    </td>
+
+    <td class="py-2 font-bold ${statusColor}">
+        ${interfaz.status}
+    </td>
+
+    <td class="py-2 font-bold ${protocolColor}">
+        ${interfaz.protocol}
+    </td>
+
+    <td class="py-2 text-cyan-400 font-mono">
+        ↓ ${datosTrafico.rx}
+    </td>
+
+    <td class="py-2 text-pink-400 font-mono">
+        ↑ ${datosTrafico.tx}
+    </td>
+
+</tr>
+
+`;
+
+                }
+
+                document.getElementById(`tabla-interfaces-${ip}`)
+                    .innerHTML = html;
+
+
+                const resLogs = await fetch(`/api/syslog?hostname=${nombre}&limit=50`);
+                const logs = await resLogs.json();
+
+                console.log(`Logs recibidos para ${ip}:`, logs.length); // Debug
+
+                let htmlLogs = "";
+
+                if (logs.length === 0) {
+                    htmlLogs = `<div class="text-gray-400 italic p-4">No hay logs para este dispositivo todavía...</div>`;
+                } else {
+                    logs.forEach((log, index) => {
+                        let claseExtra = "";
+
+                        const mensajeUpper = log.mensaje.toUpperCase();
+                        if (mensajeUpper.includes("UPDOWN") ||
+                            mensajeUpper.includes("ADJCHG") ||
+                            mensajeUpper.includes("OSPF")) {
+                            claseExtra = "bg-red-900/40 border-l-4 border-red-500";
+                        } else if (mensajeUpper.includes("%SYS-")) {
+                            claseExtra = "bg-yellow-900/30 border-l-4 border-yellow-500";
+                        }
+
+                        htmlLogs += `
+                            <div class="bg-slate-800 p-3 rounded ${claseExtra} mb-2">
+                                <span class="text-gray-500 text-xs">${log.timestamp || ''}</span><br>
+                                <span class="text-gray-200 break-words">${log.mensaje}</span>
+                            </div>`;
+                    });
+                }
+
+                document.getElementById(`syslog-${ip}`).innerHTML = htmlLogs;
+
+            } catch (e) {
+
+                console.error(ip, e);
+
+            }
+
+        }
+
+        // ===== PRIMERA CARGA =====
+        await cargarDetalle();
+
+        // ===== EVITAR DUPLICADOS =====
+        if (intervalosDetalle[ip]) {
+
+            clearInterval(intervalosDetalle[ip]);
+
+        }
+
+        // ===== NUEVO INTERVALO =====
+        /*intervalosDetalle[ip] = setInterval(async () => {
+
+            if (!panel.classList.contains("hidden")) {
+
+                await cargarDetalle();
+
+            }
+
+        }, 30000);*/
+
+    }
+
+    // Lista IPs
+    const dispositivos = JSON.parse('{{ dispositivos | map(attribute="ip") | list | tojson | safe }}');
+
+    // Primera carga
+    dispositivos.forEach(function (ip) {
+        cargarSNMP(ip);
+    });
+
+    // Refresco automático
+    /*setInterval(() => {
+
+        dispositivos.forEach(function (ip) {
+            cargarSNMP(ip);
+        });
+
+    }, 10000);*/
+
+    async function medirTiempoMonitoreo(ip, nombre) {
+
+        const resultado = document.getElementById(`tiempo-medido-${ip}`);
+
+        resultado.innerText = "Midiendo...";
+
+        try {
+
+            const res = await fetch(`/api/consulta-completa/${nombre}`);
+            const data = await res.json();
+
+            if (data.success) {
+                resultado.innerText = `Tiempo total: ${data.tiempo_total} s`;
+            } else {
+                resultado.innerText = `Error: ${data.error || "desconocido"}`;
+            }
+
+        } catch (e) {
+
+            resultado.innerText = "Error de conexión";
+            console.error(ip, e);
+
+        }
+
+    }
+
+</script>
+
+{% endblock %}

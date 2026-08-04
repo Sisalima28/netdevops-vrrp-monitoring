@@ -1,0 +1,16 @@
+- name: Configurar SYSLOG
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Configurar servidor syslog
+      cisco.ios.ios_config:
+        lines:
+          - logging host 192.168.130.3 transport udp port 5514
+          - logging trap informational
+          - logging source-interface Loopback0
+          - logging origin-id hostname
+          - service timestamps log datetime msec
+          - logging on
+        parents: []
+      when: "'R' in inventory_hostname or 'L3SW' in inventory_hostname"

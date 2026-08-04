@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>MONITOREO Y AUTOMATIZACION</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body class="bg-gray-900 text-gray-100 flex h-screen overflow-hidden">
+
+    <!-- Sidebar Fijo -->
+    <aside class="w-64 bg-slate-800 border-r border-blue-500/30 flex flex-col">
+        <div class="p-6 border-b border-gray-700">
+            <h1 class="text-xl font-bold text-blue-400">Dashboard</h1>
+        </div>
+        <nav class="flex-1 p-4 space-y-2">
+            <a href="/"
+                class="block p-3 rounded-lg transition flex items-center {{ 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' if seccion == 'principal' else 'text-gray-400 hover:bg-slate-700' }}">
+                <i class="fas fa-th-large mr-3"></i> Principal
+            </a>
+            <a href="/monitoreo"
+                class="block p-3 rounded-lg transition flex items-center {{ 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' if seccion == 'monitoreo' else 'text-gray-400 hover:bg-slate-700' }}">
+                <i class="fas fa-chart-line mr-3"></i> Monitoreo
+            </a>
+            <a href="/automatizacion"
+                class="block p-3 rounded-lg transition flex items-center {{ 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' if seccion == 'automatizacion' else 'text-gray-400 hover:bg-slate-700' }}">
+                <i class="fas fa-robot mr-3"></i> Automatización
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Contenido Dinámico -->
+    <main class="flex-1 overflow-y-auto bg-slate-900 p-8">
+        {% block content %}
+        <!-- Aquí se inyectará el código de los otros archivos -->
+        {% endblock %}
+    </main>
+
+</body>
+
+</html>

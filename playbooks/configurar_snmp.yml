@@ -1,0 +1,25 @@
+- name: "FASE DE MONITOREO: Configuracion General de SNMP"
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: "Paso 1: Configurar parametros de SNMP en IOS"
+      cisco.ios.ios_config:
+        lines:
+          - snmp-server community Utmach RO
+          - snmp-server location Laboratorio_Utmach
+          - snmp-server contact Admin
+        save_when: changed
+
+    - name: "Paso 2: Validar que el servicio SNMP responda"
+      cisco.ios.ios_command:
+        commands:
+          - show snmp
+      register: resultado_snmp
+
+    - name: "Paso 3: Mostrar confirmacion en consola"
+      debug:
+        msg: 
+          - "Dispositivo: {{ inventory_hostname }}"
+          - "Estado: Configurado exitosamente"
+          - "Comunidad: Utmach"

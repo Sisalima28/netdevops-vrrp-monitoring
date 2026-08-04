@@ -1,0 +1,138 @@
+{% extends "index.html" %}
+
+{% block content %}
+
+<h2 class="text-2xl font-bold mb-6 flex items-center">
+    <i class="fas fa-network-wired mr-3 text-blue-400"></i>
+    Infraestructura
+</h2>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+    {% for d in dispositivos %}
+
+    <div class="bg-slate-800 rounded-xl border border-gray-700 p-5 hover:border-blue-500 transition shadow-lg">
+
+        <div class="flex items-center space-x-4">
+
+            <div class="w-20 h-20 bg-slate-700 rounded-lg flex items-center justify-center p-2 overflow-hidden">
+
+                {% if d.imagen %}
+                <img src="{{ d.imagen }}"
+                     alt="{{ d.tipo }}"
+                     class="max-w-full max-h-full object-contain group-hover:scale-110 transition-transform">
+                {% else %}
+                <i class="fas fa-server text-2xl text-blue-400"></i>
+                {% endif %}
+
+            </div>
+
+            <div>
+
+                <h3 class="font-bold text-lg">
+                    {{ d.nombre }}
+                </h3>
+
+                <p class="text-sm text-gray-400 font-mono">
+                    {{ d.ip }}
+                </p>
+
+            </div>
+
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-gray-700 flex justify-between items-center">
+
+            <div class="flex items-center space-x-2">
+
+                <!-- LED -->
+                <div class="relative flex h-3 w-3">
+
+                    <span id="led-{{ d.ip }}"
+                          class="relative inline-flex rounded-full h-3 w-3 bg-yellow-400">
+                    </span>
+
+                </div>
+
+                <!-- Estado -->
+                <span id="estado-{{ d.ip }}"
+                      class="text-[11px] font-bold text-yellow-400 uppercase tracking-widest">
+                    Verificando...
+                </span>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+<script>
+
+async function verificarPing(ip){
+
+    try{
+
+        const res = await fetch(`/api/ping/${ip}`);
+        const data = await res.json();
+
+        const estado = document.getElementById(`estado-${ip}`);
+        const led = document.getElementById(`led-${ip}`);
+
+        estado.innerText = data.estado;
+
+        // Limpiar colores anteriores
+        estado.classList.remove(
+            "text-yellow-400",
+            "text-green-400",
+            "text-red-500"
+        );
+
+        led.classList.remove(
+            "bg-yellow-400",
+            "bg-green-500",
+            "bg-red-600"
+        );
+
+        if(data.online){
+
+            estado.classList.add("text-green-400");
+            led.classList.add("bg-green-500");
+
+        }else{
+
+            estado.classList.add("text-red-500");
+            led.classList.add("bg-red-600");
+
+        }
+
+    }catch(e){
+
+        console.error(ip, e);
+
+    }
+
+}
+
+// Obtener IPs desde Jinja
+const dispositivos = JSON.parse('{{ dispositivos | map(attribute="ip") | list | tojson | safe }}');
+
+// Ejecutar ping
+dispositivos.forEach(function(ip){
+    verificarPing(ip);
+});
+
+setInterval(() => {
+
+    dispositivos.forEach(function(ip){
+        verificarPing(ip);
+    });
+
+}, 10000);
+
+</script>
+
+{% endblock %}

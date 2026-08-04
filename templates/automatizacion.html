@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automatización VRRP</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        body {
+            background-color: #081225;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        .card {
+            background-color: #162338;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+        }
+
+        .input-dark {
+            background-color: #0f172a;
+            border: 1px solid #334155;
+            color: white;
+        }
+
+        .input-dark:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 1px #3b82f6;
+        }
+
+        .border-red-error {
+            border-color: #ef4444 !important;
+            box-shadow: 0 0 0 1px #ef4444 !important;
+        }
+
+        .btn-primary {
+            background-color: #2563eb;
+            transition: 0.2s;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: #1d4ed8;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .badge-master {
+            background-color: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+        }
+
+        .badge-backup {
+            background-color: rgba(251, 191, 36, 0.15);
+            color: #facc15;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- MODAL DEPLOY -->
+    <div id="deployModal"
+        class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+
+        <div class="bg-[#162338] rounded-2xl p-10 w-[450px] border border-slate-700 shadow-2xl">
+
+            <div class="flex flex-col items-center">
+
+                <div class="w-20 h-20 rounded-full border-4 border-blue-500 border-t-transparent animate-spin mb-6">
+                </div>
+
+                <h3 class="text-2xl font-bold mb-3">
+                    Aplicando Configuración
+                </h3>
+
+                <p class="text-slate-400 text-center mb-6">
+                    Ejecutando automatización VRRP y VLAN mediante Ansible...
+                </p>
+
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+                    <div class="bg-blue-500 h-3 animate-pulse w-full"></div>
+                </div>
+
+                <p class="text-xs text-slate-500 mt-5">
+                    No cierres esta ventana
+                </p>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="flex min-h-screen">
+
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-[#111c2d] p-6 border-r border-slate-800">
+
+            <h1 class="text-3xl font-bold mb-10 text-blue-400">
+                Dashboard
+            </h1>
+
+            <nav class="space-y-4">
+
+                <a href="/" class="block px-4 py-3 rounded-xl hover:bg-blue-600 transition">
+                    Principal
+                </a>
+
+                <a href="/monitoreo" class="block px-4 py-3 rounded-xl hover:bg-blue-600 transition">
+                    Monitoreo
+                </a>
+
+                <a href="/automatizacion" class="block px-4 py-3 rounded-xl bg-blue-600 font-semibold">
+                    Automatización
+                </a>
+
+            </nav>
+        </aside>
+
+        <!-- MAIN -->
+        <main class="flex-1 p-8 overflow-y-auto">
+
+            <div class="mb-10">
+                <h2 class="text-4xl font-bold mb-2">
+                    Automatización VRRP
+                </h2>
+            </div>
+
+            <!-- ESTADO -->
+            <section class="mb-12">
+
+                <div class="flex items-center justify-between mb-6">
+
+                    <h3 class="text-2xl font-semibold">
+                        Estado Actual VRRP
+                    </h3>
+
+                    <div id="estadoVRRP" class="flex items-center gap-3 text-slate-400">
+
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Consultando VRRP...
+
+                    </div>
+
+                </div>
+
+                <div id="vrrpCards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                </div>
+
+            </section>
+
+            <!-- FORM -->
+            <section>
+
+                <div class="card max-w-6xl mx-auto">
+
+                    <div class="mb-8">
+
+                        <h3 class="text-3xl font-bold mb-2">
+                            Crear Configuración VRRP
+                        </h3>
+
+                        <p class="text-slate-400">
+                            Despliegue automático de VLAN y redundancia VRRP.
+                        </p>
+
+                    </div>
+
+                    <!-- INPUTS -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                        <div>
+
+                            <label class="block mb-2 text-sm font-medium">
+                                VLAN ID
+                            </label>
+
+                            <input id="vlan_id" type="number" class="w-full rounded-lg px-4 py-3 input-dark"
+                                placeholder="10">
+
+                            <p id="vlan_error" class="text-red-400 text-xs mt-2 hidden">
+                                VLAN inválida o existente.
+                            </p>
+
+                        </div>
+
+                        <div>
+
+                            <label class="block mb-2 text-sm font-medium">
+                                Nombre VLAN
+                            </label>
+
+                            <input id="vlan_name" type="text" class="w-full rounded-lg px-4 py-3 input-dark"
+                                placeholder="USERS">
+
+                        </div>
+
+                        <!-- RED -->
+                        <div class="grid grid-cols-3 gap-4">
+
+                            <div class="col-span-2">
+
+                                <label class="block mb-2 text-sm font-medium">
+                                    Red
+                                </label>
+
+                                <input id="red_ip" type="text" class="w-full rounded-lg px-4 py-3 input-dark"
+                                    placeholder="192.168.10.0">
+
+                                <p id="red_format_error" class="text-red-400 text-[10px] mt-1 hidden">
+
+                                    Formato IP inválido.
+
+                                </p>
+
+                            </div>
+
+                            <div>
+
+                                <label class="block mb-2 text-sm font-medium">
+                                    Máscara
+                                </label>
+
+                                <select id="red_mask" class="w-full rounded-lg px-4 py-3 input-dark">
+
+                                    <option value="24">/24</option>
+                                    <option value="25">/25</option>
+                                    <option value="26">/26</option>
+                                    <option value="27">/27</option>
+                                    <option value="28">/28</option>
+                                    <option value="29">/29</option>
+                                    <option value="30">/30</option>
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+                        <!-- PREEMPT -->
+                        <div>
+
+                            <label class="block mb-2 text-sm font-medium">
+                                Configuración
+                            </label>
+
+                            <div class="flex items-center gap-3 mt-4">
+
+                                <input id="preempt" type="checkbox" checked>
+
+                                <span class="text-slate-300">
+                                    Habilitar Preempt
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- SWITCHES -->
+                    <div class="mt-8">
+
+                        <label class="block mb-3 text-sm font-medium">
+                            Dispositivos Participantes
+                        </label>
+
+                        <div id="switches" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                            {% for sw in l3switches %}
+
+                            <div class="switch-card cursor-pointer bg-[#0f172a] border border-slate-700 rounded-xl p-4 transition hover:border-blue-500"
+                                data-switch="{{ sw.nombre }}">
+
+                                <div class="flex items-center justify-between">
+
+                                    <div>
+
+                                        <h4 class="font-semibold">
+                                            {{ sw.nombre }}
+                                        </h4>
+
+                                        <p class="text-sm text-slate-400">
+                                            {{ sw.ip }}
+                                        </p>
+
+                                    </div>
+
+                                    <div class="check hidden">
+                                        <i class="fas fa-check-circle text-blue-400 text-xl"></i>
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                            {% endfor %}
+
+                        </div>
+
+                    </div>
+
+                    <!-- MASTER -->
+                    <div class="mt-8">
+
+                        <label class="block mb-2 text-sm font-medium">
+                            Master Preferido
+                        </label>
+
+                        <select id="master" class="w-full rounded-lg px-4 py-3 input-dark">
+
+                            {% for sw in l3switches %}
+
+                            <option value="{{ sw.nombre }}">
+                                {{ sw.nombre }}
+                            </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                    </div>
+
+                    <!-- MODO -->
+                    <div class="mt-10">
+
+                        <h4 class="text-xl font-semibold mb-5">
+                            Asignación de Direcciones IP
+                        </h4>
+
+                        <div class="flex gap-8 mb-6">
+
+                            <label class="flex items-center gap-2">
+
+                                <input type="radio" name="modo_ip" value="automatico" checked>
+
+                                <span>Automático</span>
+
+                            </label>
+
+                            <label class="flex items-center gap-2">
+
+                                <input type="radio" name="modo_ip" value="manual">
+
+                                <span>Manual</span>
+
+                            </label>
+
+                        </div>
+
+                        <!-- AUTO -->
+                        <div id="automaticoBox" class="bg-[#0f172a] rounded-xl p-5 border border-slate-700">
+
+                            <h5 class="font-semibold mb-3 text-blue-400">
+                                Modo automático
+                            </h5>
+
+                            <ul class="space-y-2 text-slate-300 text-sm">
+
+                                <li>• VIP automática</li>
+                                <li>• IPs consecutivas</li>
+                                <li>• Prioridades automáticas</li>
+
+                            </ul>
+
+                        </div>
+
+                        <!-- MANUAL -->
+                        <div id="manualBox" class="hidden mt-5 bg-[#0f172a] rounded-xl p-5 border border-slate-700">
+
+                            <h5 class="font-semibold mb-5 text-yellow-400">
+                                Configuración Manual
+                            </h5>
+
+                            <p id="msg_manual_info" class="text-xs text-red-400 mb-4">
+
+                                * Las IPs deben pertenecer a la red y no ser la VIP.
+
+                            </p>
+
+                            <div id="manualInputs" class="space-y-4">
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <!-- BUTTONS -->
+                    <div class="flex gap-4 mt-10">
+
+                        <button id="btnGenerar" onclick="generarConfiguracion()" disabled
+                            class="btn-primary px-6 py-3 rounded-xl font-semibold">
+
+                            Generar Configuración
+
+                        </button>
+
+                        <button id="btnAplicar" onclick="aplicarConfiguracion()" disabled
+                            class="px-6 py-3 rounded-xl font-semibold bg-green-600 hover:bg-green-700 transition disabled:opacity-40 disabled:cursor-not-allowed">
+
+                            Aplicar Configuración
+
+                        </button>
+
+                    </div>
+
+                    <!-- PREVIEW -->
+                    <div id="previewBox" class="hidden mt-10 bg-[#0f172a] border border-slate-700 rounded-xl p-6">
+
+                        <div class="flex items-center justify-between mb-5">
+
+                            <h4 class="text-2xl font-bold">
+                                Preview Configuración IOS
+                            </h4>
+
+                            <button onclick="cerrarPreview()" class="text-slate-400 hover:text-white">
+
+                                ✕
+
+                            </button>
+
+                        </div>
+
+                        <div id="previewContenido" class="space-y-6">
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+    </div>
+
+    <script>
+
+        let configuracionesGeneradas = {};
+        let configuracionValida = false;
+        let vlansExistentes = new Set();
+        let switchesSeleccionados = [];
+
+        const btnGenerar = document.getElementById('btnGenerar');
+        const btnAplicar = document.getElementById('btnAplicar');
+
+        const vlanInput = document.getElementById('vlan_id');
+        const redIpInput = document.getElementById('red_ip');
+        const redMaskSelect = document.getElementById('red_mask');
+
+        const ipRegex =
+            /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+        function invalidarConfiguracion() {
+
+            configuracionValida = false;
+            configuracionesGeneradas = {};
+
+            btnAplicar.disabled = true;
+
+            document
+                .getElementById('previewBox')
+                .classList
+                .add('hidden');
+        }
+
+        function ipToLong(ip) {
+
+            return ip
+                .split('.')
+                .map(Number)
+                .reduce((acc, byte) => (acc << 8) + byte, 0) >>> 0;
+        }
+
+        function perteneceARed(ipTest, redIp, mask) {
+
+            if (!ipRegex.test(ipTest) || !ipRegex.test(redIp))
+                return false;
+
+            try {
+
+                const ipBinary = ipToLong(ipTest);
+                const redBinary = ipToLong(redIp);
+                const maskBinary = -1 << (32 - parseInt(mask));
+
+                return (ipBinary & maskBinary) === (redBinary & maskBinary);
+
+            } catch {
+
+                return false;
+            }
+        }
+
+        function obtenerPrimeraUtilizable(redIp, mask) {
+
+            if (!ipRegex.test(redIp))
+                return null;
+
+            try {
+
+                const redBinary = ipToLong(redIp);
+                const maskBinary = -1 << (32 - parseInt(mask));
+
+                const firstUsableBinary =
+                    (redBinary & maskBinary) + 1;
+
+                return [
+                    (firstUsableBinary >>> 24) & 0xFF,
+                    (firstUsableBinary >>> 16) & 0xFF,
+                    (firstUsableBinary >>> 8) & 0xFF,
+                    firstUsableBinary & 0xFF
+                ].join('.');
+
+            } catch {
+
+                return null;
+            }
+        }
+
+        function limpiarFormulario() {
+
+            // limpiar inputs
+            vlanInput.value = '';
+            redIpInput.value = '';
+            document.getElementById('vlan_name').value = '';
+            redMaskSelect.value = '24';
+
+            // reset switches
+            switchesSeleccionados = [];
+
+            document.querySelectorAll('.switch-card').forEach(card => {
+
+                card.classList.remove(
+                    'border-blue-500',
+                    'bg-blue-500/10'
+                );
+
+                card.querySelector('.check')
+                    .classList
+                    .add('hidden');
+            });
+
+            // limpiar master
+            document.getElementById('master').innerHTML = '';
+
+            // ocultar preview
+            document.getElementById('previewBox')
+                .classList
+                .add('hidden');
+
+            // limpiar configs
+            configuracionesGeneradas = {};
+            configuracionValida = false;
+
+            // botones
+            btnGenerar.disabled = true;
+            btnAplicar.disabled = true;
+
+            // volver modo automático
+            document.querySelector(
+                'input[value="automatico"]'
+            ).checked = true;
+
+            document.getElementById('automaticoBox')
+                .classList
+                .remove('hidden');
+
+            document.getElementById('manualBox')
+                .classList
+                .add('hidden');
+
+            document.getElementById('manualInputs')
+                .innerHTML = '';
+
+            // limpiar errores
+            document.getElementById('vlan_error')
+                .classList
+                .add('hidden');
+
+            document.getElementById('red_format_error')
+                .classList
+                .add('hidden');
+        }
+
+        function validarTodo() {
+
+            const vlanValue = vlanInput.value.trim();
+
+            const vlanNum = parseInt(vlanValue);
+
+            const vlanOk =
+                vlanValue !== "" &&
+                vlanNum >= 1 &&
+                vlanNum <= 4094 &&
+                !vlansExistentes.has(vlanValue);
+
+            const redIpValue = redIpInput.value.trim();
+
+            const redOk = ipRegex.test(redIpValue);
+
+            const switchesOk = switchesSeleccionados.length > 0;
+
+            const master = document.getElementById('master').value;
+
+            const masterOk = switchesSeleccionados.includes(master);
+
+            let manualOk = true;
+
+            const primeraIP =
+                obtenerPrimeraUtilizable(
+                    redIpValue,
+                    redMaskSelect.value
+                );
+
+            if (
+                document.querySelector(
+                    'input[name="modo_ip"]:checked'
+                ).value === 'manual'
+            ) {
+
+                const inputs =
+                    document.querySelectorAll('.manual-ip');
+
+                if (inputs.length === 0)
+                    manualOk = false;
+
+                inputs.forEach(input => {
+
+                    const val = input.value.trim();
+
+                    const enRed =
+                        perteneceARed(
+                            val,
+                            redIpValue,
+                            redMaskSelect.value
+                        );
+
+                    if (
+                        val === "" ||
+                        !ipRegex.test(val) ||
+                        val === primeraIP ||
+                        !enRed
+                    ) {
+
+                        manualOk = false;
+
+                        input.classList.add(
+                            'border-red-error'
+                        );
+
+                    } else {
+
+                        input.classList.remove(
+                            'border-red-error'
+                        );
+                    }
+
+                });
+            }
+
+            if (!vlanOk && vlanValue !== "") {
+
+                document
+                    .getElementById('vlan_error')
+                    .classList
+                    .remove('hidden');
+
+            } else {
+
+                document
+                    .getElementById('vlan_error')
+                    .classList
+                    .add('hidden');
+            }
+
+            if (redIpValue !== "" && !redOk) {
+
+                redIpInput.classList.add(
+                    'border-red-error'
+                );
+
+                document
+                    .getElementById('red_format_error')
+                    .classList
+                    .remove('hidden');
+
+            } else {
+
+                redIpInput.classList.remove(
+                    'border-red-error'
+                );
+
+                document
+                    .getElementById('red_format_error')
+                    .classList
+                    .add('hidden');
+            }
+
+            btnGenerar.disabled =
+                !(vlanOk && redOk && switchesOk && masterOk && manualOk);
+        }
+
+        async function cargarVRRP() {
+
+            try {
+
+                const res = await fetch('/api/vrrp');
+
+                const data = await res.json();
+
+                vlansExistentes.clear();
+
+                document.getElementById('estadoVRRP').innerHTML = `
+<div class="flex items-center gap-2 text-green-400">
+<i class="fas fa-check-circle"></i>
+VRRP actualizado correctamente
+</div>`;
+
+                const container =
+                    document.getElementById('vrrpCards');
+
+                container.innerHTML = '';
+
+                for (const [switchName, vlans] of Object.entries(data)) {
+
+                    let contenidoVRRP = '';
+
+                    vlans.forEach(vlan => {
+
+                        vlansExistentes.add(
+                            vlan.vlan.toString()
+                        );
+
+                        const badge =
+                            vlan.estado === 'MASTER'
+                                ? 'badge-master'
+                                : 'badge-backup';
+
+                        contenidoVRRP += `
+<div class="flex items-center justify-between bg-[#0f172a] rounded-lg px-4 py-3">
+
+<div>
+
+<p class="font-medium">
+VLAN ${vlan.vlan}
+</p>
+
+<p class="text-sm text-slate-400">
+VIP: ${vlan.vip}
+</p>
+
+<p class="text-sm text-slate-500">
+Grupo VRRP: ${vlan.grupo}
+</p>
+
+<p class="text-sm text-slate-500">
+Master: ${vlan.master_addr}
+</p>
+
+</div>
+
+<div class="text-right">
+
+<span class="${badge} text-xs px-3 py-1 rounded-full font-semibold">
+${vlan.estado}
+</span>
+
+<p class="text-xs text-slate-400 mt-2">
+Priority ${vlan.prioridad}
+</p>
+
+</div>
+
+</div>`;
+                    });
+
+                    container.innerHTML += `
+<div class="card">
+
+<div class="flex items-center justify-between mb-5">
+
+<div>
+
+<h4 class="text-xl font-bold">
+${switchName}
+</h4>
+
+</div>
+
+<div class="w-3 h-3 rounded-full bg-green-400"></div>
+
+</div>
+
+<div class="space-y-3">
+${contenidoVRRP}
+</div>
+
+</div>`;
+                }
+
+            } catch (e) {
+
+                console.error(e);
+            }
+        }
+
+        function actualizarMastersDisponibles() {
+
+            const masterSelect =
+                document.getElementById('master');
+
+            const valorActual = masterSelect.value;
+
+            masterSelect.innerHTML = '';
+
+            switchesSeleccionados.forEach(sw => {
+
+                masterSelect.innerHTML += `
+<option value="${sw}">
+${sw}
+</option>`;
+            });
+
+            if (switchesSeleccionados.includes(valorActual)) {
+
+                masterSelect.value = valorActual;
+            }
+        }
+
+        vlanInput.addEventListener('input', () => {
+
+            invalidarConfiguracion();
+            validarTodo();
+        });
+
+        [redIpInput, redMaskSelect].forEach(el => {
+
+            el.addEventListener('input', () => {
+
+                invalidarConfiguracion();
+
+                const vip =
+                    obtenerPrimeraUtilizable(
+                        redIpInput.value.trim(),
+                        redMaskSelect.value
+                    );
+
+                if (vip) {
+
+                    document.getElementById(
+                        'msg_manual_info'
+                    ).innerText =
+                        `* VIP Reservada: ${vip}`;
+                }
+
+                validarTodo();
+            });
+        });
+
+        document.querySelectorAll('.switch-card').forEach(card => {
+
+            card.addEventListener('click', () => {
+
+                invalidarConfiguracion();
+
+                const nombre = card.dataset.switch;
+
+                const check =
+                    card.querySelector('.check');
+
+                if (switchesSeleccionados.includes(nombre)) {
+
+                    switchesSeleccionados =
+                        switchesSeleccionados.filter(
+                            s => s !== nombre
+                        );
+
+                    card.classList.remove(
+                        'border-blue-500',
+                        'bg-blue-500/10'
+                    );
+
+                    check.classList.add('hidden');
+
+                } else {
+
+                    switchesSeleccionados.push(nombre);
+
+                    card.classList.add(
+                        'border-blue-500',
+                        'bg-blue-500/10'
+                    );
+
+                    check.classList.remove('hidden');
+                }
+
+                actualizarMastersDisponibles();
+
+                if (
+                    document.querySelector(
+                        'input[value="manual"]'
+                    ).checked
+                ) {
+
+                    generarInputsManuales();
+                }
+
+                validarTodo();
+            });
+        });
+
+        document.querySelectorAll(
+            'input[name="modo_ip"]'
+        ).forEach(radio => {
+
+            radio.addEventListener('change', () => {
+
+                invalidarConfiguracion();
+
+                if (radio.value === 'manual') {
+
+                    document
+                        .getElementById('automaticoBox')
+                        .classList
+                        .add('hidden');
+
+                    document
+                        .getElementById('manualBox')
+                        .classList
+                        .remove('hidden');
+
+                    generarInputsManuales();
+
+                } else {
+
+                    document
+                        .getElementById('automaticoBox')
+                        .classList
+                        .remove('hidden');
+
+                    document
+                        .getElementById('manualBox')
+                        .classList
+                        .add('hidden');
+                }
+
+                validarTodo();
+            });
+        });
+
+        document.getElementById('master')
+            .addEventListener('change', () => {
+
+                invalidarConfiguracion();
+                validarTodo();
+            });
+
+        document.getElementById('preempt')
+            .addEventListener('change', () => {
+
+                invalidarConfiguracion();
+                validarTodo();
+            });
+
+        document.getElementById('vlan_name')
+            .addEventListener('input', () => {
+
+                invalidarConfiguracion();
+                validarTodo();
+            });
+
+        function generarInputsManuales() {
+
+            const container =
+                document.getElementById('manualInputs');
+
+            container.innerHTML = '';
+
+            switchesSeleccionados.forEach(sw => {
+
+                const div =
+                    document.createElement('div');
+
+                div.innerHTML = `
+<label class="block text-sm mb-2">
+${sw}
+</label>
+
+<input type="text"
+    data-switch="${sw}"
+    placeholder="192.168.10.10"
+    class="manual-ip w-full rounded-lg px-4 py-3 input-dark">`;
+
+                container.appendChild(div);
+
+                div.querySelector('input')
+                    .addEventListener('input', () => {
+
+                        invalidarConfiguracion();
+                        validarTodo();
+                    });
+            });
+        }
+
+        async function generarConfiguracion() {
+
+            const payload = {
+
+                vlan_id:
+                    vlanInput.value,
+
+                vlan_name:
+                    document.getElementById('vlan_name').value,
+
+                red:
+                    `${redIpInput.value.trim()}/${redMaskSelect.value}`,
+
+                switches:
+                    switchesSeleccionados,
+
+                master:
+                    document.getElementById('master').value,
+
+                preempt:
+                    document.getElementById('preempt').checked,
+
+                modo_ip:
+                    document.querySelector(
+                        'input[name="modo_ip"]:checked'
+                    ).value,
+
+                ips_manuales: {}
+            };
+
+            if (payload.modo_ip === "manual") {
+
+                document.querySelectorAll('.manual-ip')
+                    .forEach(i => {
+
+                        payload.ips_manuales[
+                            i.dataset.switch
+                        ] = i.value;
+                    });
+            }
+
+            const res =
+                await fetch('/api/generar-vrrp', {
+
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+
+                    body: JSON.stringify(payload)
+                });
+
+            const data = await res.json();
+
+            if (data.success) {
+
+                configuracionValida = true;
+
+                configuracionesGeneradas =
+                    data.configs;
+
+                mostrarPreview(data.configs);
+
+                btnAplicar.disabled = false;
+            }
+        }
+
+        async function aplicarConfiguracion() {
+
+            if (!configuracionValida)
+                return;
+
+            btnAplicar.disabled = true;
+
+            btnAplicar.innerHTML =
+                '<i class="fas fa-spinner fa-spin"></i> Aplicando...';
+
+            document.getElementById('deployModal')
+                .classList
+                .remove('hidden');
+
+            try {
+
+                const res =
+                    await fetch('/api/aplicar-vrrp', {
+
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+
+                        body: JSON.stringify({
+                            configs: configuracionesGeneradas
+                        })
+                    });
+
+                const data = await res.json();
+
+                if (data.success) {
+
+                    document.getElementById(
+                        'estadoVRRP'
+                    ).innerHTML = `
+<div class="flex items-center gap-2 text-green-400">
+<i class="fas fa-check-circle"></i>
+Configuración aplicada correctamente
+</div>`;
+
+                    await cargarVRRP();
+
+                    configuracionValida = false;
+
+                    limpiarFormulario();
+
+                } else {
+
+                    alert(
+                        'Error aplicando configuración:\n' +
+                        data.error
+                    );
+                }
+
+            } catch {
+
+                alert('Error de comunicación');
+
+            } finally {
+
+                document.getElementById('deployModal')
+                    .classList
+                    .add('hidden');
+
+                btnAplicar.disabled = true;
+
+                btnAplicar.innerHTML =
+                    'Aplicar Configuración';
+            }
+        }
+
+        function mostrarPreview(configs) {
+
+            const box =
+                document.getElementById('previewBox');
+
+            const contenido =
+                document.getElementById('previewContenido');
+
+            contenido.innerHTML = '';
+
+            for (const [sw, config] of Object.entries(configs)) {
+
+                contenido.innerHTML += `
+<div>
+
+<h5 class="text-lg font-bold text-blue-400 mb-3">
+${sw}
+</h5>
+
+<pre class="bg-black/40 rounded-xl p-5 overflow-auto text-sm text-green-400 border border-slate-700">
+${config}
+</pre>
+
+</div>`;
+            }
+
+            box.classList.remove('hidden');
+        }
+
+        function cerrarPreview() {
+
+            document.getElementById('previewBox')
+                .classList
+                .add('hidden');
+        }
+
+        cargarVRRP();
+
+    </script>
+
+</body>
+
+</html>
